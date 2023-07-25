@@ -1,0 +1,15 @@
+;
+; BIND reverse data file for local 10.10.aaa.bbb net
+;
+$TTL    604800
+@       IN      SOA     ns.internal.charistech.xyz. root.internal.charistech.xyz. (
+                              2         ; Serial
+                         604800         ; Refresh
+                          86400         ; Retry
+                        2419200         ; Expire
+                         604800 )       ; Negative Cache TTL
+;
+@       IN      NS      ns.
+4.1     IN      PTR     ns.internal.charistech.xyz.
+4.2     IN      PTR     datavm.internal.charistech.xyz.
+4.3     IN      PTR     webvm.internal.charistech.xyz.

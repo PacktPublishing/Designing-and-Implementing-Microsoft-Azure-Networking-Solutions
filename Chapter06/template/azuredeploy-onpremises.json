@@ -1,0 +1,146 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "localGateway0Name": {
+            "type": "string",
+            "defaultValue": "CharisTechVWANHub-EastUS-GW0",
+            "metadata": {
+                "description": "Name for the VWAN hub S2S VPN gateway 0 resource"
+            }
+        },
+        "localGateway1Name": {
+            "type": "string",
+            "defaultValue": "CharisTechVWANHub-EastUS-GW1",
+            "metadata": {
+                "description": "Name for the VWAN hub S2S VPN gateway 1 resource"
+            }
+        },
+        "localGateway0PipAddress": {
+            "type": "string",
+            "metadata": {
+                "description": "Public IP of VWAN hub S2S VPN gateway 0"
+            }
+        },
+        "localGateway1PipAddress": {
+            "type": "string",
+            "metadata": {
+                "description": "Public IP of VWAN hub S2S VPN gateway 1"
+            }
+        },
+        "localGatewayBgpASN": {
+            "type": "int",
+            "defaultValue": 65515,
+            "metadata": {
+                "description": "BGP ASN of the VWAN hub S2S VPN gateway resource"
+            }
+        },
+        "localGateway0BgpPeeringIp": {
+            "type": "string",
+            "metadata": {
+                "description": "BGP IP Address of VWAN hub S2S VPN gateway 0"
+            }
+        },
+        "localGateway1BgpPeeringIp": {
+            "type": "string",
+            "metadata": {
+                "description": "BGP IP Address of VWAN hub S2S VPN gateway 1"
+            }
+        },
+        "OnPremGatewayName": {
+            "type": "string",
+            "defaultValue": "onpremgw",
+            "metadata": {
+                "description": "Name of the on-premises VPN gateway"
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Location for the resources."
+            }
+        }
+    },
+    "variables": {
+        "connection1Name": "on-prem-TO-vwanhub-gw0",
+        "connection2Name": "on-prem-TO-vwanhub-gw1",
+        "sharedKey": "vpnPass123"
+    },
+    "resources": [
+        {
+            "comments": "Local network gateway for the VWAN hub S2S VPN gateway 0 resource",
+            "type": "Microsoft.Network/localNetworkGateways",
+            "apiVersion": "2020-08-01",
+            "name": "[parameters('localGateway0Name')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "gatewayIpAddress": "[parameters('localGateway0PipAddress')]",
+                "bgpSettings": {
+                    "asn": "[parameters('localGatewayBgpASN')]",
+                    "bgpPeeringAddress": "[parameters('localGateway0BgpPeeringIp')]",
+                    "peerWeight": 0
+                }
+            }
+        },
+        {
+            "comments": "Local network gateway for the VWAN hub S2S VPN gateway 1 resource",
+            "type": "Microsoft.Network/localNetworkGateways",
+            "apiVersion": "2020-08-01",
+            "name": "[parameters('localGateway1Name')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "gatewayIpAddress": "[parameters('localGateway1PipAddress')]",
+                "bgpSettings": {
+                    "asn": "[parameters('localGatewayBgpASN')]",
+                    "bgpPeeringAddress": "[parameters('localGateway1BgpPeeringIp')]",
+                    "peerWeight": 0
+                }
+            }
+        },
+        {
+            "comments": "VPN connection between the on-premises-site and VWAN hub S2S VPN gateway 0",
+            "type": "Microsoft.Network/connections",
+            "apiVersion": "2020-08-01",
+            "name": "[variables('connection1Name')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/localNetworkGateways', parameters('localGateway0Name'))]"
+            ],
+            "properties": {
+                "virtualNetworkGateway1": {
+                    "id": "[resourceId('Microsoft.Network/virtualNetworkGateways',parameters('OnPremGatewayName'))]"
+                },
+                "localNetworkGateway2": {
+                    "id": "[resourceId('Microsoft.Network/localNetworkGateways', parameters('localGateway0Name'))]"
+                },
+                "connectionType": "IPsec",
+                "routingWeight": 0,
+                "sharedKey": "[variables('sharedKey')]",
+                "enableBGP": true
+            }
+        },
+        {
+            "comments": "VPN connection between the on-premises-site and VWAN hub S2S VPN gateway 0",
+            "type": "Microsoft.Network/connections",
+            "apiVersion": "2020-08-01",
+            "name": "[variables('connection2Name')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/localNetworkGateways', parameters('localGateway1Name'))]"
+            ],
+            "properties": {
+                "virtualNetworkGateway1": {
+                    "id": "[resourceId('Microsoft.Network/virtualNetworkGateways',parameters('OnPremGatewayName'))]"
+                },
+                "localNetworkGateway2": {
+                    "id": "[resourceId('Microsoft.Network/localNetworkGateways', parameters('localGateway1Name'))]"
+                },
+                "connectionType": "IPsec",
+                "routingWeight": 0,
+                "sharedKey": "[variables('sharedKey')]",
+                "enableBGP": true
+            }
+        }
+    ]
+}

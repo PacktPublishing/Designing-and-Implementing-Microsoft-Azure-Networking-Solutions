@@ -1,0 +1,19 @@
+;
+; BIND data file for local loopback interface
+; BIND data file for local the internal.charistech.xyz zone
+;
+$TTL    604800
+@       IN      SOA     internal.charistech.xyz. root.internal.charistech.xyz. (
+                              2         ; Serial
+                         604800         ; Refresh
+                          86400         ; Retry
+                        2419200         ; Expire
+                         604800 )       ; Negative Cache TTL
+;
+@       IN      NS      ns.internal.charistech.xyz.
+@       IN      A       10.10.1.4
+@       IN      AAAA    ::1
+ns      IN      A       10.10.1.4
+datavm  IN      A       10.10.2.4
+webvm   IN      A       10.10.3.4
+engvm   IN      A       10.20.1.4

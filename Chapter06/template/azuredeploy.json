@@ -1,0 +1,740 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "WebVmName": {
+      "type": "string",
+      "defaultValue": "webvm",
+      "metadata": {
+        "description": "The name of the web virtual machine."
+      }
+    },
+    "EngVmName": {
+      "type": "string",
+      "defaultValue": "engvm",
+      "metadata": {
+        "description": "The name of the engineering virtual machine."
+      }
+    },
+    "OnPremVmName": {
+      "type": "string",
+      "defaultValue": "onpremvm",
+      "metadata": {
+        "description": "The name of the on-premises virtual machine."
+      }
+    },
+    "RemotePcName": {
+      "type": "string",
+      "defaultValue": "remotepc",
+      "metadata": {
+        "description": "The name of the remote user PC"
+      }
+    },
+    "adminUsername": {
+      "type": "string",
+      "defaultValue": "azureuser",
+      "metadata": {
+        "description": "Username for the Virtual Machine."
+      }
+    },
+    "onpremUsername": {
+      "type": "string",
+      "defaultValue": "onpremuser",
+      "metadata": {
+        "description": "Username for the onprem virtual machine."
+      }
+    },
+    "remoteUsername": {
+      "type": "string",
+      "defaultValue": "remoteuser",
+      "metadata": {
+        "description": "Username for the Virtual Machine."
+      }
+    },
+    "adminPassword": {
+      "type": "secureString",
+      "metadata": {
+        "description": "Password for the Virtual Machine"
+      }
+    },
+    "IpsecSharedKey": {
+      "type": "secureString",
+      "defaultValue": "vpnPass123",
+      "metadata": {
+        "description": "SharedKey for the IPSEC connection"
+      }
+    },
+    "webVmdnsLabelPrefix": {
+      "type": "string",
+      "defaultValue": "[toLower(format('{0}-{1}', parameters('WebVmName'), uniqueString(resourceGroup().id)))]",
+      "metadata": {
+        "description": "Unique DNS Name for the Public IP used to access the Virtual Machine."
+      }
+    },
+    "ubuntuOSVersion": {
+      "type": "string",
+      "defaultValue": "18.04-LTS",
+      "allowedValues": [
+        "12.04.5-LTS",
+        "14.04.5-LTS",
+        "16.04.0-LTS",
+        "18.04-LTS"
+      ],
+      "metadata": {
+        "description": "The Ubuntu version for the VM. This will pick a fully patched image of this given Ubuntu version."
+      }
+    },
+    "RemotePcOSVersion": {
+      "type": "string",
+      "defaultValue": "2019-Datacenter",
+      "allowedValues": [
+        "2012-Datacenter",
+        "2016-Datacenter",
+        "2019-Datacenter",
+        "2022-datacenter"
+      ],
+      "metadata": {
+        "description": "The Windows version for the Remote PC"
+      }
+    },
+    "vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_B2s",
+      "metadata": {
+        "description": "The size of the VM"
+      }
+    },
+    "firstVnetLocation": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location to deploy the CoreServices VNet, OnPrem VM and Remote PC into"
+      }
+    },
+    "secondVnetLocation": {
+      "type": "string",
+      "defaultValue": "West US",
+      "allowedValues": [
+        "East US",
+        "East US 2",
+        "South Central US",
+        "Central US",
+        "West US",
+        "Australia East",
+        "Southeast Asia",
+        "North Europe",
+        "West Europe",
+        "UK South",
+        "UK West",
+        "South Central US",
+        "South Africa North",
+        "Central India",
+        "East Asia",
+        "Japan East",
+        "Korea South",
+        "South India",
+        "West India",
+        "France South",
+        "Germany North",
+        "Central India",
+        "Norway West",
+        "UAE Central"
+      ],
+      "metadata": {
+        "description": "Location to deploy the Engineering VNet into"
+      }
+    }
+  },
+  "variables": {
+    "Vnet-1-Name": "CoreServicesVnet",
+    "Vnet-2-Name": "EngineeringVnet",
+    "Vnet-3-Name": "onprem-network",
+    "Vnet-4-Name": "remotepc-network",
+    "GatewaySubnetName": "GatewaySubnet",
+    "OnPremSubnet1Name": "onprem-subnet-1",
+    "WebSubnetName": "PublicWebServiceSubnet",
+    "OnPremGatewayName": "onpremgw",
+    "EngSubnet1Name": "EngSubnet1",
+    "RemotePcSubnetName": "remotepc-subnet",
+    "Vnet-1-AddressPrefix": "10.10.0.0/16",
+    "webSubnetAddressPrefix": "10.10.3.0/24",
+    "Vnet-2-AddressPrefix": "10.20.0.0/16",
+    "EngSubnet1AddressPrefix": "10.20.1.0/24",
+    "Vnet-3-AddressPrefix": "10.30.0.0/16",
+    "OnPremSubnet1AddressPrefix": "10.30.1.0/24",
+    "OnPremGatewaySubnetAddressPrefix": "10.30.10.0/24",
+    "Vnet-4-AddressPrefix": "10.40.0.0/16",
+    "RemotePcSubnetAddressPrefix": "10.40.1.0/24",
+    "RemotePcPip": "[format('{0}PublicIP', parameters('RemotePcName'))]",
+    "OnPremGatewayPip": "[format('{0}PublicIP', variables('OnPremGatewayName'))]",
+    "RemotePCdnsLabelPrefix": "[toLower(format('{0}-{1}', parameters('RemotePcName'), uniqueString(resourceGroup().id)))]",
+    "OnPremGatewaydnsLabelPrefix": "[toLower(format('{0}-{1}', variables('OnPremGatewayName'), uniqueString(resourceGroup().id)))]",
+    "OnPremGatewayPipId": "[resourceId('Microsoft.Network/publicIPAddresses',variables('OnPremGatewayPip'))]",
+    "WebVmPip": "[format('{0}PublicIP', parameters('WebVmName'))]",
+    "WebVmNic": "[format('{0}NetInt', parameters('WebVmName'))]",
+    "EngVmNic": "[format('{0}NetInt', parameters('EngVmName'))]",
+    "OnPremVmNic": "[format('{0}NetInt', parameters('OnPremVmName'))]",
+    "RemotePcNic": "[format('{0}NetInt', parameters('RemotePcName'))]",
+    "RemotePcNSG": "RemotePcNsg",
+    "OnPremGatewaySubnetRef": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('Vnet-3-Name'), 'GatewaySubnet')]",
+    "webNSG": "WebVmNsg",
+    "osDiskType": "Standard_LRS",
+    "_artifactsLocation": "[deployment().properties.templateLink.uri]",
+    "_artifactsLocationSasToken": ""
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('WebVmNic')]",
+      "location": "[parameters('firstVnetLocation')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('Vnet-1-Name'), variables('webSubnetName'))]"
+              },
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('WebVmPip'))]"
+              }
+            }
+          }
+        ],
+        "networkSecurityGroup": {
+          "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('webNSG'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('webNSG'))]",
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('WebVmPip'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('Vnet-1-Name'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('RemotePcNic')]",
+      "location": "[parameters('firstVnetLocation')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('Vnet-4-Name'), variables('RemotePcSubnetName'))]"
+              },
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('RemotePcPip'))]"
+              }
+            }
+          }
+        ],
+        "networkSecurityGroup": {
+          "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('RemotePcNSG'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('RemotePcNSG'))]",
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('RemotePcPip'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('Vnet-4-Name'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('OnPremVmNic')]",
+      "location": "[parameters('firstVnetLocation')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('Vnet-3-Name'), variables('OnPremSubnet1Name'))]"
+              },
+              "privateIPAllocationMethod": "Dynamic"
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('Vnet-3-Name'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('EngVmNic')]",
+      "location": "[parameters('secondVnetLocation')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('Vnet-2-Name'), variables('EngSubnet1Name'))]"
+              },
+              "privateIPAllocationMethod": "Dynamic"
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('Vnet-2-Name'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('RemotePcNSG')]",
+      "location": "[parameters('firstVnetLocation')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "RDP",
+            "properties": {
+              "priority": 1000,
+              "protocol": "Tcp",
+              "access": "Allow",
+              "direction": "Inbound",
+              "sourceAddressPrefix": "*",
+              "sourcePortRange": "*",
+              "destinationAddressPrefix": "*",
+              "destinationPortRange": "3389"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('webNSG')]",
+      "location": "[parameters('firstVnetLocation')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "SSH",
+            "properties": {
+              "priority": 1000,
+              "protocol": "Tcp",
+              "access": "Allow",
+              "direction": "Inbound",
+              "sourceAddressPrefix": "*",
+              "sourcePortRange": "*",
+              "destinationAddressPrefix": "*",
+              "destinationPortRange": "22"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('Vnet-3-Name')]",
+      "location": "[parameters('firstVnetLocation')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('Vnet-3-AddressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('OnPremSubnet1Name')]",
+            "properties": {
+              "addressPrefix": "[variables('OnPremSubnet1AddressPrefix')]",
+              "privateEndpointNetworkPolicies": "Enabled",
+              "privateLinkServiceNetworkPolicies": "Enabled"
+            }
+          },
+          {
+            "name": "[variables('GatewaySubnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('OnPremGatewaySubnetAddressPrefix')]",
+              "privateEndpointNetworkPolicies": "Enabled",
+              "privateLinkServiceNetworkPolicies": "Enabled"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('Vnet-4-Name')]",
+      "location": "[parameters('firstVnetLocation')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('Vnet-4-AddressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('RemotePcSubnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('RemotePcSubnetAddressPrefix')]",
+              "privateEndpointNetworkPolicies": "Enabled",
+              "privateLinkServiceNetworkPolicies": "Enabled"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('Vnet-1-Name')]",
+      "location": "[parameters('firstVnetLocation')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('Vnet-1-AddressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('WebSubnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('WebSubnetAddressPrefix')]",
+              "privateEndpointNetworkPolicies": "Enabled",
+              "privateLinkServiceNetworkPolicies": "Enabled"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('Vnet-2-Name')]",
+      "location": "[parameters('secondVnetLocation')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('Vnet-2-AddressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('EngSubnet1Name')]",
+            "properties": {
+              "addressPrefix": "[variables('EngSubnet1AddressPrefix')]",
+              "privateEndpointNetworkPolicies": "Enabled",
+              "privateLinkServiceNetworkPolicies": "Enabled"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('OnPremGatewayPip')]",
+      "location": "[parameters('firstVnetLocation')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static",
+        "publicIPAddressVersion": "IPv4",
+        "dnsSettings": {
+          "domainNameLabel": "[variables('OnPremGatewaydnsLabelPrefix')]"
+        },
+        "idleTimeoutInMinutes": 4
+      }
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('RemotePcPip')]",
+      "location": "[parameters('firstVnetLocation')]",
+      "sku": {
+        "name": "Basic"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic",
+        "publicIPAddressVersion": "IPv4",
+        "dnsSettings": {
+          "domainNameLabel": "[variables('RemotePcdnsLabelPrefix')]"
+        },
+        "idleTimeoutInMinutes": 4
+      }
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('WebVmPip')]",
+      "location": "[parameters('firstVnetLocation')]",
+      "sku": {
+        "name": "Basic"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic",
+        "publicIPAddressVersion": "IPv4",
+        "dnsSettings": {
+          "domainNameLabel": "[parameters('webVmdnsLabelPrefix')]"
+        },
+        "idleTimeoutInMinutes": 4
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2021-11-01",
+      "name": "[parameters('OnPremVmName')]",
+      "location": "[parameters('firstVnetLocation')]",
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "storageProfile": {
+          "osDisk": {
+            "createOption": "FromImage",
+            "managedDisk": {
+              "storageAccountType": "[variables('osDiskType')]"
+            }
+          },
+          "imageReference": {
+            "publisher": "Canonical",
+            "offer": "UbuntuServer",
+            "sku": "[parameters('ubuntuOSVersion')]",
+            "version": "latest"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('OnPremVmNic'))]"
+            }
+          ]
+        },
+        "osProfile": {
+          "computerName": "[parameters('OnPremVmName')]",
+          "adminUsername": "[parameters('onpremUsername')]",
+          "adminPassword": "[parameters('AdminPassword')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('OnPremVmNic'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2021-11-01",
+      "name": "[parameters('RemotePcName')]",
+      "location": "[parameters('firstVnetLocation')]",
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "storageProfile": {
+          "osDisk": {
+            "createOption": "FromImage",
+            "managedDisk": {
+              "storageAccountType": "[variables('osDiskType')]"
+            }
+          },
+          "imageReference": {
+            "publisher": "MicrosoftWindowsServer",
+            "offer": "WindowsServer",
+            "sku": "[parameters('RemotePcOSVersion')]",
+            "version": "latest"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('RemotePcNic'))]"
+            }
+          ]
+        },
+        "osProfile": {
+          "computerName": "[parameters('RemotePcName')]",
+          "adminUsername": "[parameters('remoteUsername')]",
+          "adminPassword": "[parameters('AdminPassword')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('RemotePcNic'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(parameters('RemotePcName'),'/InstallVpnCert')]",
+      "apiVersion": "2018-06-01",
+      "location": "[parameters('firstVnetLocation')]",
+      "dependsOn": [
+        "[concat('Microsoft.Compute/virtualMachines/',parameters('RemotePcName'))]"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Compute",
+        "type": "CustomScriptExtension",
+        "typeHandlerVersion": "1.10",
+        "settings": {
+          "fileUris": [
+            "[uri(variables('_artifactsLocation'), concat('vpncert.ps1', variables('_artifactsLocationSasToken')))]"
+          ],
+          "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -File vpncert.ps1"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2021-11-01",
+      "name": "[parameters('WebVmName')]",
+      "location": "[parameters('firstVnetLocation')]",
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "storageProfile": {
+          "osDisk": {
+            "createOption": "FromImage",
+            "managedDisk": {
+              "storageAccountType": "[variables('osDiskType')]"
+            }
+          },
+          "imageReference": {
+            "publisher": "Canonical",
+            "offer": "UbuntuServer",
+            "sku": "[parameters('ubuntuOSVersion')]",
+            "version": "latest"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('WebVmNic'))]"
+            }
+          ]
+        },
+        "osProfile": {
+          "computerName": "[parameters('WebVmName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('WebVmNic'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2021-11-01",
+      "name": "[parameters('EngVmName')]",
+      "location": "[parameters('secondVnetLocation')]",
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "storageProfile": {
+          "osDisk": {
+            "createOption": "FromImage",
+            "managedDisk": {
+              "storageAccountType": "[variables('osDiskType')]"
+            }
+          },
+          "imageReference": {
+            "publisher": "Canonical",
+            "offer": "UbuntuServer",
+            "sku": "[parameters('ubuntuOSVersion')]",
+            "version": "latest"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('EngVmNic'))]"
+            }
+          ]
+        },
+        "osProfile": {
+          "computerName": "[parameters('EngVmName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('EngVmNic'))]"
+      ]
+    },
+    {
+      "apiVersion": "2020-11-01",
+      "type": "Microsoft.Network/virtualNetworkGateways",
+      "name": "[variables('OnPremGatewayName')]",
+      "location": "[parameters('firstVnetLocation')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('OnPremGatewayPip'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('Vnet-3-Name'))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables('OnPremGatewaySubnetRef')]"
+              },
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('OnPremGatewayPip'))]"
+              }
+            },
+            "name": "OnPremGatewayConfig"
+          }
+        ],
+        "sku": {
+          "name": "VpnGw1",
+          "tier": "VpnGw1"
+        },
+        "gatewayType": "Vpn",
+        "vpnType": "RouteBased",
+        "enableBgp": true,
+        "activeActive": false,
+        "vpnGatewayGeneration": "Generation1",
+        "bgpSettings": {
+          "asn": 65001
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "adminUsername": {
+      "type": "string",
+      "value": "[parameters('adminUsername')]"
+    },
+    "PublicWebVM": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', variables('WebVmPip'))).dnsSettings.fqdn]"
+    },
+    "sshCommand": {
+      "type": "string",
+      "value": "[format('ssh {0}@{1}', parameters('adminUsername'), reference(resourceId('Microsoft.Network/publicIPAddresses', variables('WebVmPip'))).dnsSettings.fqdn)]"
+    },
+    "RemotePC-FQDN": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', variables('RemotePcPip'))).dnsSettings.fqdn]"
+    },
+    "RemotePC-Username": {
+      "type": "string",
+      "value": "[parameters('remoteUsername')]"
+    },
+    "OnPremVPNDevice-FQDN": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', variables('OnPremGatewayPip'))).dnsSettings.fqdn]"
+    },
+    "OnPremVPNDevice-BGP-ASN": {
+      "type": "string",
+      "value": "65001"
+    },
+    "OnPremVPNDevice-BGP-PeerIP": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/virtualNetworkGateways', variables('OnPremGatewayName'))).bgpSettings.bgpPeeringAddress]"
+    }
+  }
+}
