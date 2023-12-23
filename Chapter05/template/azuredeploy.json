@@ -546,8 +546,8 @@
     },
     {
       "type": "Microsoft.Compute/virtualMachines/extensions",
-      "name": "MyCustomScriptExtension",
-      "apiVersion": "2015-05-01-preview",
+      "name": "[concat(parameters('RemotePcName'),'/MyCustomScriptExtension')]",
+      "apiVersion": "2021-11-01",
       "location": "[parameters('secondVnetLocation')]",
       "dependsOn": [
         "[concat('Microsoft.Compute/virtualMachines/',parameters('RemotePcName'))]"
