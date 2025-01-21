@@ -1,3 +1,6 @@
+
+<b><p align='center'>[![Packt Sale](https://static.packt-cdn.com/assets/images/image.jpeg)](https://www.packtpub.com/)</p></b>Get this book on sale at [Packt](https://www.packtpub.com/).
+
 # Designing and Implementing Microsoft Azure Networking Solutions
 
 <a href="https://www.packtpub.com/product/designing-and-implementing-microsoft-azure-networking-solutions/9781803242033?utm_source=github&utm_medium=repository&utm_campaign=9781801076012"><img src="https://static.packt-cdn.com/products/9781803242033/cover/smaller" alt="Designing and Implementing Microsoft Azure Networking Solutions" height="256px" align="right"></a>
