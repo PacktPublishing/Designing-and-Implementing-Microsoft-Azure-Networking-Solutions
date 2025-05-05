@@ -1,6 +1,3 @@
-
-<b><p align='center'>[![Packt Sale](https://static.packt-cdn.com/assets/images/humble+bundle/5.png)](https://www.humblebundle.com/books/networking-mastery-packt-books?utm_medium=affiliate&utm_campaign=&utm_term=472505a3-5e1b-ea11-a812-00224801bc51&utm_content=)</p></b> 
-
 # Designing and Implementing Microsoft Azure Networking Solutions
 
 <a href="https://www.packtpub.com/product/designing-and-implementing-microsoft-azure-networking-solutions/9781803242033?utm_source=github&utm_medium=repository&utm_campaign=9781801076012"><img src="https://static.packt-cdn.com/products/9781803242033/cover/smaller" alt="Designing and Implementing Microsoft Azure Networking Solutions" height="256px" align="right"></a>
